@@ -26,8 +26,6 @@ from utils.general import (
 from utils.plots import plot_one_box
 from utils.torch_utils import select_device, load_classifier, time_synchronized
 
-import core.utils
-
 # deep sort imports
 from deep_sort import preprocessing, nn_matching
 from deep_sort.detection import Detection
@@ -55,7 +53,7 @@ def detect(save_img=False):
     )
 
     # initialize tracker
-    tracker = Tracker(metric, max_age=60, max_iou_distance=0.7, n_init=1)
+    tracker = Tracker(metric, max_age=60, max_iou_distance=0.7, n_init=3)
     # TODO ===================================================================
 
     # TODO Get variables for object detection
@@ -316,8 +314,8 @@ def detect(save_img=False):
             # person was previously above the line, has gone below the line in this frame
             # add to in count
             if not track.below_line and is_below_line:
-                # if track.stop_tracking == True:
-                #     continue
+                if track.stop_tracking == True:
+                    continue
                 in_count += 1
                 # stop tracking
                 track.stop_tracking = True
@@ -327,8 +325,8 @@ def detect(save_img=False):
             # person was previously below the line, has gone above the line in this frame
             # add to out count
             if track.below_line and not is_below_line:
-                # if track.stop_tracking == True:
-                #     continue
+                if track.stop_tracking == True:
+                    continue
                 out_count += 1
                 # stop tracking
                 track.stop_tracking = True
