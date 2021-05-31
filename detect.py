@@ -37,6 +37,9 @@ from tools import generate_detections as gdet
 
 def detect(save_img=False):
 
+    in_count = 0
+    out_count = 0
+
     # Definition of the parameters
     max_cosine_distance = 0.4
     nn_budget = None
@@ -169,17 +172,6 @@ def detect(save_img=False):
         ]
         """
 
-        # TODO ====================== rescale coords, convert to xywh format ============================
-
-        # gain = torch.tensor(im0s.shape)[[1, 0, 1, 0]]  # normalization gain whwh
-        # for i in range(len(bboxes)):
-        #     box = bboxes[i]
-        #     box = scale_coords(img.shape[2:], box, im0s.shape).round()
-        #     xywh = (xyxy2xywh(torch.tensor(*box).view(1, 4)) / gain).view(-1).tolist()  # normalized xywh
-        #     print(xywh)
-
-        # TODO ==========================================================================================
-
         # Apply Classifier
         if classify:
             preds = apply_classifier(preds, modelc, img, im0s)
@@ -234,12 +226,11 @@ def detect(save_img=False):
                     bbox[0] -= int(bbox[2] / 2)
                     bbox[1] -= int(bbox[3] / 2)
 
-                # TODO ======================== Print results =====================================
+                # Print detection results 
                 for c in det[:, -1].unique():
                     n = (det[:, -1] == c).sum()  # detections per class
                     s += f"{n} {names[int(c)]}{'s' * (n > 1)}, "  # add to string
                     detections_str = f"{n} {names[int(c)]}{'s' * (n > 1)}, "
-                # TODO ===========================================================================
 
             # TODO ===================== Drawing all detections ===================================
             # if len(det):
@@ -286,7 +277,7 @@ def detect(save_img=False):
         cmap = plt.get_cmap("tab20b")
         colors = [cmap(i)[:3] for i in np.linspace(0, 1, 20)]
 
-        # non maxima supression again ?
+        # non maxima suppression again ?
         boxs = np.array([d.tlwh for d in detections])
         scores = np.array([d.confidence for d in detections])
         classes = np.array([d.class_name for d in detections])
@@ -296,9 +287,16 @@ def detect(save_img=False):
 
         detections = [detections[i] for i in indices]
 
-        tracker.predict()
-        tracker.update(detections)
+        width = int(vid_cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        height = int(vid_cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+                    
+        LINE = ((0, height // 2), (width, height // 2))
 
+        # update tracks
+        tracker.predict()
+        tracker.update(detections, line_y_coord=height//2)
+
+        # draw bboxes for tracked heads only
         for track in tracker.tracks:
             if not track.is_confirmed() or track.time_since_update > 1:
                 continue
@@ -306,36 +304,98 @@ def detect(save_img=False):
             bbox = track.to_tlbr()
             class_name = track.get_class()
 
+            # get center of bounding box
+            center_x = int((bbox[0] + bbox[2]) / 2)
+            center_y = int((bbox[3] + bbox[1]) / 2)
+            bbox_center = (center_x, center_y)
+
+            # check whether centre is above or below the line 
+            dist_from_line = center_y - (height // 2)
+            is_below_line = dist_from_line > 0
+
+            # person was previously above the line, has gone below the line in this frame
+            # add to in count
+            if not track.below_line and is_below_line:
+                # if track.stop_tracking == True:
+                #     continue
+                in_count += 1
+                # stop tracking
+                track.stop_tracking = True
+                # update below_line status
+                track.below_line = is_below_line
+
+            # person was previously below the line, has gone above the line in this frame
+            # add to out count
+            if track.below_line and not is_below_line:
+                # if track.stop_tracking == True:
+                #     continue
+                out_count += 1
+                # stop tracking
+                track.stop_tracking = True
+                track.below_line = is_below_line
+
+            # update below_line status for track
+            track.below_line = is_below_line
+
+
             color = colors[int(track.track_id) % len(colors)]
             color = [i * 255 for i in color]
+
+            if track.stop_tracking:
+                color = (0, 255, 0) if track.below_line else (255, 0, 0)
+            else:
+                color = (0, 0, 0)
 
             label = f"{class_name}: {track.track_id}"
             # draw bounding box
             plot_one_box(x=bbox, img=im0, color=color, label=label, line_thickness=2)
+            # draw bounding box center
+            cv2.circle(img=im0, center=bbox_center, radius=3, color=(255, 255, 255), thickness=-1)
 
-            # Stream results
-            if view_img:
-                cv2.imshow(str(p), im0)
-                cv2.waitKey(1)
 
-            # Save results (image with detections)
-            if save_img:
-                if dataset.mode == "image":
-                    cv2.imwrite(save_path, im0)
-                else:  # 'video'
-                    if vid_path != save_path:  # new video
-                        vid_path = save_path
-                        if isinstance(vid_writer, cv2.VideoWriter):
-                            vid_writer.release()  # release previous video writer
+        # draw divider line
+        cv2.line(
+            img=im0,
+            pt1=LINE[0],
+            pt2=LINE[1],
+            color=(0, 155, 255),
+            thickness=2,
+        )
 
-                        fourcc = "mp4v"  # output video codec
-                        fps = vid_cap.get(cv2.CAP_PROP_FPS)
-                        w = int(vid_cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-                        h = int(vid_cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-                        vid_writer = cv2.VideoWriter(
-                            save_path, cv2.VideoWriter_fourcc(*fourcc), fps, (w, h)
-                        )
-                    vid_writer.write(im0)
+        # show in/out count
+        cv2.putText(
+            img=im0,
+            text=f'in: {in_count}, out: {out_count}',
+            org=(15, 195),
+            fontFace=0,
+            fontScale=0.75,
+            color=(255, 255, 255),
+            thickness=2
+        )
+
+        # Stream results
+        if view_img:
+            cv2.imshow(str(p), im0)
+            cv2.waitKey(1) # wait atleast 1ms 
+
+        # Save results (image with detections)
+        if save_img:
+            if dataset.mode == "image":
+                cv2.imwrite(save_path, im0)
+            else:  # 'video'
+                if vid_path != save_path:  # new video
+                    vid_path = save_path
+                    if isinstance(vid_writer, cv2.VideoWriter):
+                        vid_writer.release()  # release previous video writer
+
+                    fourcc = "mp4v"  # output video codec
+                    fps = vid_cap.get(cv2.CAP_PROP_FPS)
+                    w = int(vid_cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+                    h = int(vid_cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+                    vid_writer = cv2.VideoWriter(
+                        save_path, cv2.VideoWriter_fourcc(*fourcc), fps, (w, h)
+                    )
+                vid_writer.write(im0)
 
         # Print time (inference + NMS)
         print(f"{detections_str}Inference + NMS done. ({t2 - t1:.3f}s)")
