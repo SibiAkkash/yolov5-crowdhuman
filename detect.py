@@ -43,7 +43,6 @@ def detect(save_img=False):
     nn_budget = None
     nms_max_overlap = 1.0
 
-    # TODO ======================= DeepSORT ==================================
     # initialize deep sort
     model_filename = "weights/mars-small128.pb"
     encoder = gdet.create_box_encoder(model_filename, batch_size=1)
@@ -54,9 +53,8 @@ def detect(save_img=False):
 
     # initialize tracker
     tracker = Tracker(metric, max_age=60, max_iou_distance=0.7, n_init=3)
-    # TODO ===================================================================
 
-    # TODO Get variables for object detection
+    # get variables for object detection, model weights, savepath ...
     source, weights, view_img, save_txt, imgsz = (
         opt.source,
         opt.weights,
@@ -119,20 +117,19 @@ def detect(save_img=False):
         )  # run once
     t0 = time.time()
 
+    # path -> path of img/video
+    # im0s -> image read from path (could be image (or) frame of a video)
+    # img -> im0s is padded and other changes are made, resulting in img
+    # self.cap -> video capture object
     for path, img, im0s, vid_cap in dataset:
-
-        # * path -> path of img/video
-        # * im0s -> image read from path (could be image (or) frame of a video)
-        # * img -> im0s is padded and other changes are made, resulting in img
-        # * self.cap -> video capture object
 
         # convert numpy array to tensor, then convert to gpu/cpu representation
         img = torch.from_numpy(img).to(device)
         # convert to half precision on gpu
         img = img.half() if half else img.float()  # uint8 to fp16/32
-        # convert to grayscale ?
+        # normalise image ?
         img /= 255.0  # 0 - 255 to 0.0 - 1.0
-        # img.dimension() returns dimension of tensor
+        # img.ndim (or) img.ndimension() returns dimension of tensor
         if img.ndim == 3:
             img = img.unsqueeze(0)
 
@@ -150,27 +147,10 @@ def detect(save_img=False):
         )
         t2 = time_synchronized()
 
-        # print(preds)
-        # * prediction output -> N x 6 tensor
-        # * tensor = (min_x, min_y, max_x, max_y, confidence, class)
-        # * sample
-        """ 
-        [
-            tensor(
-                [
-                    [ 2.87142e+02,  3.37627e+00,  3.54700e+02,  1.01038e+02,  8.83265e-01,  1],
-                    [ 2.23392e+02,  1.93529e+02,  3.10253e+02,  3.00007e+02,  8.42104e-01,  1],
-                    [ 2.26288e+02,  6.68579e-01,  4.01710e+02,  4.09652e+02,  7.93190e-01,  0],
-                    [ 1.45278e+02,  2.99023e+01,  1.97888e+02,  8.51547e+01,  6.85377e-01,  1],
-                    [ 1.92674e+02,  1.84224e+02,  3.78924e+02,  4.79458e+02,  6.09018e-01,  0],
-                    [ 1.19260e+02,  1.70975e+01,  2.76960e+02,  3.21991e+02,  5.86185e-01,  0],
-                    [ 2.04914e-01, -9.77791e-01,  1.15449e+02,  2.00803e+02,  3.66411e-01,  0]
-                ]
-            )
-        ]
-        """
+        # prediction output -> N x 6 tensor
+        # tensor = (min_x, min_y, max_x, max_y, confidence, class)
 
-        # Apply Classifier
+        # Apply Classifier, optional second stage classifier on yolo
         if classify:
             preds = apply_classifier(preds, modelc, img, im0s)
 
@@ -182,7 +162,12 @@ def detect(save_img=False):
         # Process detections
         for i, det in enumerate(preds):  # detections per image
             if webcam:  # batch_size >= 1
-                p, s, im0, frame = path[i], "%g: " % i, im0s[i].copy(), dataset.count
+                p, s, im0, frame = (
+                    path[i],
+                    f"{i}: ",
+                    im0s[i].copy(),
+                    dataset.count,
+                )
             else:
                 p, s, im0, frame = path, "", im0s, getattr(dataset, "frame", 0)
 
@@ -201,62 +186,28 @@ def detect(save_img=False):
                 det[:, :4] = scale_coords(img.shape[2:], det[:, :4], im0.shape).round()
 
                 for *xyxy, conf, cls in reversed(det):
-
-                    # type(xyxy) => List[torch.Tensor]
-                    norm_xyxy = (torch.tensor(xyxy).view(1, 4) / gn).view(-1).tolist()
-                    print(f"xyxy: {xyxy}")
-                    print(norm_xyxy)
-
-                    # convert to xywh format
+                    # convert bbox to xywh format
                     xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4))).view(-1).tolist()
                     # add detections of head alone, names = ['person', 'head']
                     if cls.item() == 1:
-                        # bboxes.append(norm_xyxy)
                         bboxes.append(xywh)
                         scores.append(conf.item())
                         classes.append(cls.item())
                         class_names.append(names[int(cls.item())])
 
-                # * the bboxes were of the format (x_center, y_center, width, height)
-                # * deep sort needs (x_topleft, y_topleft, width, height)
-                # * convert coords
+                # the bboxes were of the format (x_center, y_center, width, height)
+                # deep sort needs (x_topleft, y_topleft, width, height)
+                # convert coords
                 for bbox in bboxes:
                     bbox[0] -= int(bbox[2] / 2)
                     bbox[1] -= int(bbox[3] / 2)
 
-                # Print detection results 
+                # Print detection results
                 for c in det[:, -1].unique():
                     n = (det[:, -1] == c).sum()  # detections per class
                     s += f"{n} {names[int(c)]}{'s' * (n > 1)}, "  # add to string
                     detections_str = f"{n} {names[int(c)]}{'s' * (n > 1)}, "
 
-            # TODO ===================== Drawing all detections ===================================
-            # if len(det):
-            #     # Write results
-            #     for *xyxy, conf, cls in reversed(det):
-
-            #         # Write to file
-            #         if save_txt:
-            #             xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn).view(-1).tolist()  # normalized xywh
-            #             line = (cls, *xywh, conf) if opt.save_conf else (cls, *xywh)  # label format
-            #             with open(txt_path + '.txt', 'a') as f:
-            #                 f.write(('%g ' * len(line)).rstrip() % line + '\n')
-
-            #         # Add bbox to image
-            #         if save_img or view_img:
-            #             # get confidence value from tensor
-            #             conf = conf.item()
-            #             label = f'{names[int(cls)]} {conf:.2f}'
-            #             if opt.heads or opt.person:
-            #                 if 'head' in label and opt.heads:
-            #                     plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=2)
-            #                 if 'person' in label and opt.person:
-            #                     plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=2)
-            #             else:
-            #                 plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=2)
-            # TODO ==================================================================================
-
-        # TODO ================================ Tracker ====================================
         bboxes = np.array(bboxes)
         scores = np.array(scores)
         classes = np.array(classes)
@@ -264,6 +215,7 @@ def detect(save_img=False):
 
         # encode yolo detections and feed to tracker
         features = encoder(im0, bboxes)
+        # convert detections to Detection() object, needed for tracking
         detections = [
             Detection(bbox, score, class_name, feature)
             for bbox, score, class_name, feature in zip(
@@ -287,15 +239,17 @@ def detect(save_img=False):
 
         width = int(vid_cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         height = int(vid_cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-                    
+
         LINE = ((0, height // 2), (width, height // 2))
 
         # update tracks
         tracker.predict()
-        tracker.update(detections, line_y_coord=height//2)
+        tracker.update(detections, line_y_coord=height // 2)
 
-        # draw bboxes for tracked heads only
+        # draw bboxes for tracked objects only
         for track in tracker.tracks:
+            # skip tracks which are not confirmed
+            # or update hasn't been called for this track, because it wasn't detected by yolo in this timestep
             if not track.is_confirmed() or track.time_since_update > 1:
                 continue
 
@@ -307,7 +261,7 @@ def detect(save_img=False):
             center_y = int((bbox[3] + bbox[1]) / 2)
             bbox_center = (center_x, center_y)
 
-            # check whether centre is above or below the line 
+            # check whether centre is above or below the line
             dist_from_line = center_y - (height // 2)
             is_below_line = dist_from_line > 0
 
@@ -330,11 +284,11 @@ def detect(save_img=False):
                 out_count += 1
                 # stop tracking
                 track.stop_tracking = True
+                # update below_line status
                 track.below_line = is_below_line
 
             # update below_line status for track
             track.below_line = is_below_line
-
 
             color = colors[int(track.track_id) % len(colors)]
             color = [i * 255 for i in color]
@@ -345,11 +299,16 @@ def detect(save_img=False):
                 color = (0, 0, 0)
 
             label = f"{class_name}: {track.track_id}"
-            # draw bounding box
+            # draw bounding box with label = class_name + track_id
             plot_one_box(x=bbox, img=im0, color=color, label=label, line_thickness=2)
             # draw bounding box center
-            cv2.circle(img=im0, center=bbox_center, radius=3, color=(255, 255, 255), thickness=-1)
-
+            cv2.circle(
+                img=im0,
+                center=bbox_center,
+                radius=3,
+                color=(255, 255, 255),
+                thickness=-1,
+            )
 
         # draw divider line
         cv2.line(
@@ -363,20 +322,20 @@ def detect(save_img=False):
         # show in/out count
         cv2.putText(
             img=im0,
-            text=f'in: {in_count}, out: {out_count}',
+            text=f"in: {in_count}, out: {out_count}",
             org=(15, 195),
             fontFace=0,
             fontScale=0.75,
             color=(255, 255, 255),
-            thickness=2
+            thickness=2,
         )
 
         # Stream results
         if view_img:
             cv2.imshow(str(p), im0)
-            cv2.waitKey(1) # wait atleast 1ms 
+            cv2.waitKey(1)  # wait atleast 1ms
 
-        # Save results (image with detections)
+        # Save results
         if save_img:
             if dataset.mode == "image":
                 cv2.imwrite(save_path, im0)
@@ -400,19 +359,27 @@ def detect(save_img=False):
         fps = 1.0 / (t2 - t1)
         print(f"FPS: {fps}")
 
-    # * Text to confirm that the image/video has been saved
-    # if save_txt or save_img:
-    #     s = f"\n{len(list(save_dir.glob('labels/*.txt')))} labels saved to {save_dir / 'labels'}" if save_txt else ''
-    #     print(f"Results saved to {save_dir}{s}")
+    # Text to confirm that the image/video has been saved
+    if save_txt or save_img:
+        s = (
+            f"\n{len(list(save_dir.glob('labels/*.txt')))} labels saved to {save_dir / 'labels'}"
+            if save_txt
+            else ""
+        )
+        print(f"Results saved to {save_dir}{s}")
 
-    # * Time taken to process the img/video
+    # Time taken to process the img/video
     print(f"Done. ({time.time() - t0:.3f}s)")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--weights", nargs="+", type=str, default="yolov5s.pt", help="model.pt path(s)"
+        "--weights",
+        nargs="+",
+        type=str,
+        default="yolov5s.pt",
+        help="model.pt path(s)",
     )
     parser.add_argument(
         "--source", type=str, default="data/images", help="source"
@@ -421,7 +388,10 @@ if __name__ == "__main__":
         "--img-size", type=int, default=640, help="inference size (pixels)"
     )
     parser.add_argument(
-        "--conf-thres", type=float, default=0.25, help="object confidence threshold"
+        "--conf-thres",
+        type=float,
+        default=0.25,
+        help="object confidence threshold",
     )
     parser.add_argument(
         "--iou-thres", type=float, default=0.45, help="IOU threshold for NMS"
@@ -432,7 +402,9 @@ if __name__ == "__main__":
     parser.add_argument("--view-img", action="store_true", help="display results")
     parser.add_argument("--save-txt", action="store_true", help="save results to *.txt")
     parser.add_argument(
-        "--save-conf", action="store_true", help="save confidences in --save-txt labels"
+        "--save-conf",
+        action="store_true",
+        help="save confidences in --save-txt labels",
     )
     parser.add_argument(
         "--classes",
@@ -462,7 +434,12 @@ if __name__ == "__main__":
 
     with torch.no_grad():
         if opt.update:  # update all models (to fix SourceChangeWarning)
-            for opt.weights in ["yolov5s.pt", "yolov5m.pt", "yolov5l.pt", "yolov5x.pt"]:
+            for opt.weights in [
+                "yolov5s.pt",
+                "yolov5m.pt",
+                "yolov5l.pt",
+                "yolov5x.pt",
+            ]:
                 detect()
                 strip_optimizer(opt.weights)
         else:
