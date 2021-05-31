@@ -32,5 +32,5 @@ python3 detect.py --weights crowdhuman_yolov5m.pt --source _test/ --view-img  --
 ## Test (Only Heads)
 
 ```bash
-python3 detect.py --weights crowdhuman_yolov5m.pt --source _test/ --view-img  --heads
+python .\detect.py --weights .\weights\crowdhuman_yolov5m.pt --source <path-to-input-video> --view-img --heads --conf-thres 0.5
 ```
