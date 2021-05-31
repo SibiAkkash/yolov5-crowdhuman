@@ -188,6 +188,10 @@ class LoadImages:  # for inference
         img = img[:, :, ::-1].transpose(2, 0, 1)  # BGR to RGB, to 3x416x416
         img = np.ascontiguousarray(img)
 
+        # path -> path of img/video
+        # img0 -> image read from path (could be image (or) frame of a video)
+        # img -> padded img, converted with letterbox()
+        # self.cap -> video capture object
         return path, img, img0, self.cap
 
     def new_video(self, path):
