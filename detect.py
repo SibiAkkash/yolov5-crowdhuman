@@ -3,6 +3,7 @@ import time
 from pathlib import Path
 
 import cv2
+from google.colab.patches import cv2_imshow
 import torch
 import torch.backends.cudnn as cudnn
 import numpy as np
@@ -55,12 +56,13 @@ def detect(save_img=False):
     tracker = Tracker(metric, max_age=60, max_iou_distance=0.7, n_init=3)
 
     # get variables for object detection, model weights, savepath ...
-    source, weights, view_img, save_txt, imgsz = (
+    source, weights, view_img, save_txt, imgsz, colab = (
         opt.source,
         opt.weights,
         opt.view_img,
         opt.save_txt,
         opt.img_size,
+        opt.colab,
     )
     webcam = (
         source.isnumeric()
@@ -332,7 +334,11 @@ def detect(save_img=False):
 
         # Stream results
         if view_img:
-            cv2.imshow(str(p), im0)
+            if colab:
+                # use cv2_imshow() which works in colab
+                cv2_imshow(str(p), im0)
+            else:
+                cv2.imshow(str(p), im0)
             cv2.waitKey(1)  # wait atleast 1ms
 
         # Save results
@@ -428,10 +434,11 @@ if __name__ == "__main__":
     )
     parser.add_argument("--person", action="store_true", help="displays only person")
     parser.add_argument("--heads", action="store_true", help="displays only head")
+    parser.add_argument("--colab", default=False, help="run in colab")
     opt = parser.parse_args()
     print(opt)
-	
-	# Commenting out for running in colab
+
+    # Commenting out for running in colab
     # check_requirements()
 
     with torch.no_grad():
