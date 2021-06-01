@@ -336,7 +336,7 @@ def detect(save_img=False):
         if view_img:
             if colab:
                 # use cv2_imshow() which works in colab
-                cv2_imshow(str(p), im0)
+                cv2_imshow(im0)
             else:
                 cv2.imshow(str(p), im0)
             cv2.waitKey(1)  # wait atleast 1ms
@@ -434,7 +434,7 @@ if __name__ == "__main__":
     )
     parser.add_argument("--person", action="store_true", help="displays only person")
     parser.add_argument("--heads", action="store_true", help="displays only head")
-    parser.add_argument("--colab", default=False, help="run in colab")
+    parser.add_argument("--colab", action="store_true", help="run in colab")
     opt = parser.parse_args()
     print(opt)
 
