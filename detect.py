@@ -430,7 +430,9 @@ if __name__ == "__main__":
     parser.add_argument("--heads", action="store_true", help="displays only head")
     opt = parser.parse_args()
     print(opt)
-    check_requirements()
+	
+	# Commenting out for running in colab
+    # check_requirements()
 
     with torch.no_grad():
         if opt.update:  # update all models (to fix SourceChangeWarning)
