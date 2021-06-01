@@ -16,7 +16,7 @@
 *.mp4
 *.mov
 *.MOV
-*.avi
+# *.avi
 *.data
 *.json
 
