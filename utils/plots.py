@@ -54,7 +54,7 @@ def butter_lowpass_filtfilt(data, cutoff=1500, fs=50000, order=5):
     return filtfilt(b, a, data)  # forward-backward filter
 
 
-def plot_one_box(x, img, color=None, label=None, line_thickness=3):
+def plot_one_box(x, img, color=None, label=None, line_thickness=3, show_center=False):
     # Plots one bounding box on image img
     tl = line_thickness or round(0.002 * (img.shape[0] + img.shape[1]) / 2) + 1  # line/font thickness
     # tl=1
@@ -67,6 +67,17 @@ def plot_one_box(x, img, color=None, label=None, line_thickness=3):
         c2 = c1[0] + t_size[0], c1[1] - t_size[1] - 3
         cv2.rectangle(img, c1, c2, color, -1, cv2.LINE_AA)  # filled
         cv2.putText(img, label, (c1[0], c1[1] - 2), 0, tl / 3, [225, 255, 255], thickness=tf, lineType=cv2.LINE_AA)
+    if show_center:
+        # draw bounding box center
+        center_x = int(x[0] + x[2]/2)
+        center_y = int(x[1] + x[3]/2)
+        cv2.circle(
+            img,
+            center=(center_x, center_y),
+            radius=3,
+            color=(255, 255, 255),
+            thickness=-1,
+        )    
 
 
 def plot_one_box_PIL(box, img, color=None, label=None, line_thickness=None):

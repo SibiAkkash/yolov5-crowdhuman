@@ -119,11 +119,11 @@ def detect(save_img=False):
         )  # run once
     t0 = time.time()
 
-    # path -> path of img/video
-    # im0s -> image read from path (could be image (or) frame of a video)
-    # img -> im0s is padded and other changes are made, resulting in img
-    # self.cap -> video capture object
     for path, img, im0s, vid_cap in dataset:
+        # path -> path of img/video
+        # im0s -> image read from path (could be image (or) frame of a video)
+        # img -> im0s is padded and other changes are made, resulting in img
+        # self.cap -> video capture object
 
         # convert numpy array to tensor, then convert to gpu/cpu representation
         img = torch.from_numpy(img).to(device)
@@ -131,7 +131,7 @@ def detect(save_img=False):
         img = img.half() if half else img.float()  # uint8 to fp16/32
         # normalise image ?
         img /= 255.0  # 0 - 255 to 0.0 - 1.0
-        # img.ndim (or) img.ndimension() returns dimension of tensor
+        # change shape
         if img.ndim == 3:
             img = img.unsqueeze(0)
 
@@ -140,6 +140,8 @@ def detect(save_img=False):
         pred = model(img, augment=opt.augment)[0]
 
         # Apply NMS
+        # prediction output -> N x 6 tensor
+        # format = (min_x, min_y, max_x, max_y, confidence, class)
         preds = non_max_suppression(
             pred,
             opt.conf_thres,
@@ -148,9 +150,6 @@ def detect(save_img=False):
             agnostic=opt.agnostic_nms,
         )
         t2 = time_synchronized()
-
-        # prediction output -> N x 6 tensor
-        # tensor = (min_x, min_y, max_x, max_y, confidence, class)
 
         # Apply Classifier, optional second stage classifier on yolo
         if classify:
@@ -199,7 +198,7 @@ def detect(save_img=False):
 
                 # the bboxes were of the format (x_center, y_center, width, height)
                 # deep sort needs (x_topleft, y_topleft, width, height)
-                # convert coords
+                # translate coords
                 for bbox in bboxes:
                     bbox[0] -= int(bbox[2] / 2)
                     bbox[1] -= int(bbox[3] / 2)
@@ -220,9 +219,7 @@ def detect(save_img=False):
         # convert detections to Detection() object, needed for tracking
         detections = [
             Detection(bbox, score, class_name, feature)
-            for bbox, score, class_name, feature in zip(
-                bboxes, scores, class_names, features
-            )
+            for bbox, score, class_name, feature in zip(bboxes, scores, class_names, features)
         ]
 
         # initialize color map
@@ -233,9 +230,7 @@ def detect(save_img=False):
         boxs = np.array([d.tlwh for d in detections])
         scores = np.array([d.confidence for d in detections])
         classes = np.array([d.class_name for d in detections])
-        indices = preprocessing.non_max_suppression(
-            boxs, classes, nms_max_overlap, scores
-        )
+        indices = preprocessing.non_max_suppression(boxs, classes, nms_max_overlap, scores)
 
         detections = [detections[i] for i in indices]
 
@@ -301,15 +296,9 @@ def detect(save_img=False):
                 color = (0, 0, 0)
 
             label = f"{class_name}: {track.track_id}"
-            # draw bounding box with label = class_name + track_id
-            plot_one_box(x=bbox, img=im0, color=color, label=label, line_thickness=2)
-            # draw bounding box center
-            cv2.circle(
-                img=im0,
-                center=bbox_center,
-                radius=3,
-                color=(255, 255, 255),
-                thickness=-1,
+            # draw bounding box with label = class_name + track_id, show center of bbox
+            plot_one_box(
+                x=bbox, img=im0, color=color, label=label, line_thickness=2, show_center=True
             )
 
         # draw divider line
@@ -353,8 +342,8 @@ def detect(save_img=False):
 
                     fourcc = "mp4v"  # output video codec
                     fps = vid_cap.get(cv2.CAP_PROP_FPS)
-                    w = int(vid_cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-                    h = int(vid_cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+                    w = width
+                    h = height
                     vid_writer = cv2.VideoWriter(
                         save_path, cv2.VideoWriter_fourcc(*fourcc), fps, (w, h)
                     )
@@ -390,21 +379,15 @@ if __name__ == "__main__":
     parser.add_argument(
         "--source", type=str, default="data/images", help="source"
     )  # file/folder, 0 for webcam
-    parser.add_argument(
-        "--img-size", type=int, default=640, help="inference size (pixels)"
-    )
+    parser.add_argument("--img-size", type=int, default=640, help="inference size (pixels)")
     parser.add_argument(
         "--conf-thres",
         type=float,
         default=0.25,
         help="object confidence threshold",
     )
-    parser.add_argument(
-        "--iou-thres", type=float, default=0.45, help="IOU threshold for NMS"
-    )
-    parser.add_argument(
-        "--device", default="", help="cuda device, i.e. 0 or 0,1,2,3 or cpu"
-    )
+    parser.add_argument("--iou-thres", type=float, default=0.45, help="IOU threshold for NMS")
+    parser.add_argument("--device", default="", help="cuda device, i.e. 0 or 0,1,2,3 or cpu")
     parser.add_argument("--view-img", action="store_true", help="display results")
     parser.add_argument("--save-txt", action="store_true", help="save results to *.txt")
     parser.add_argument(
@@ -418,9 +401,7 @@ if __name__ == "__main__":
         type=int,
         help="filter by class: --class 0, or --class 0 2 3",
     )
-    parser.add_argument(
-        "--agnostic-nms", action="store_true", help="class-agnostic NMS"
-    )
+    parser.add_argument("--agnostic-nms", action="store_true", help="class-agnostic NMS")
     parser.add_argument("--augment", action="store_true", help="augmented inference")
     parser.add_argument("--update", action="store_true", help="update all models")
     parser.add_argument(
