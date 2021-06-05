@@ -118,8 +118,6 @@ def detect(save_img=False):
     out_count = 0
     prev_path = None
     for path, img, im0s, vid_cap in dataset:
-        if prev_path is None:
-            prev_path = path
         # path -> path of img/video
         # im0s -> image read from path (could be image (or) frame of a video)
         # img -> im0s is padded and other changes are made, resulting in img
@@ -362,7 +360,7 @@ def detect(save_img=False):
         if path != prev_path:
             vid_name = path.split("/")[-1]
             print(f"{vid_name} done")
-            with open(results_loc, "a") as f:
+            with open(f"{results_loc}/results.txt", "a") as f:
                 f.write(f"{vid_name} {in_count} {out_count}\n")
 
             prev_path = path
