@@ -3,7 +3,8 @@ import time
 from pathlib import Path
 
 import cv2
-from google.colab.patches import cv2_imshow
+
+# from google.colab.patches import cv2_imshow
 import torch
 import torch.backends.cudnn as cudnn
 import numpy as np
@@ -36,9 +37,6 @@ from tools import generate_detections as gdet
 
 def detect(save_img=False):
 
-    in_count = 0
-    out_count = 0
-
     # Definition of the parameters
     max_cosine_distance = 0.4
     nn_budget = None
@@ -48,9 +46,7 @@ def detect(save_img=False):
     model_filename = "weights/mars-small128.pb"
     encoder = gdet.create_box_encoder(model_filename, batch_size=1)
     # calculate cosine distance metric
-    metric = nn_matching.NearestNeighborDistanceMetric(
-        "cosine", max_cosine_distance, nn_budget
-    )
+    metric = nn_matching.NearestNeighborDistanceMetric("cosine", max_cosine_distance, nn_budget)
 
     # initialize tracker
     tracker = Tracker(metric, max_age=60, max_iou_distance=0.7, n_init=3)
@@ -74,9 +70,7 @@ def detect(save_img=False):
     save_dir = Path(
         increment_path(Path(opt.project) / opt.name, exist_ok=opt.exist_ok)
     )  # increment run
-    (save_dir / "labels" if save_txt else save_dir).mkdir(
-        parents=True, exist_ok=True
-    )  # make dir
+    (save_dir / "labels" if save_txt else save_dir).mkdir(parents=True, exist_ok=True)  # make dir
 
     # Initialize
     set_logging()
@@ -94,9 +88,9 @@ def detect(save_img=False):
     classify = False
     if classify:
         modelc = load_classifier(name="resnet101", n=2)  # initialize
-        modelc.load_state_dict(
-            torch.load("weights/resnet101.pt", map_location=device)["model"]
-        ).to(device).eval()
+        modelc.load_state_dict(torch.load("weights/resnet101.pt", map_location=device)["model"]).to(
+            device
+        ).eval()
 
     # Set Dataloader
     vid_path, vid_writer = None, None
@@ -119,7 +113,12 @@ def detect(save_img=False):
         )  # run once
     t0 = time.time()
 
+    in_count = 0
+    out_count = 0
+    prev_path = None
     for path, img, im0s, vid_cap in dataset:
+        if prev_path is None:
+            prev_path = path
         # path -> path of img/video
         # im0s -> image read from path (could be image (or) frame of a video)
         # img -> im0s is padded and other changes are made, resulting in img
@@ -298,7 +297,15 @@ def detect(save_img=False):
             label = f"{class_name}: {track.track_id}"
             # draw bounding box with label = class_name + track_id, show center of bbox
             plot_one_box(
-                x=bbox, img=im0, color=color, label=label, line_thickness=2, show_center=True
+                x=bbox, img=im0, color=color, label=label, line_thickness=2, show_center=False
+            )
+            # show bbox center
+            cv2.circle(
+                im0,
+                center=bbox_center,
+                radius=3,
+                color=(255, 255, 255),
+                thickness=-1,
             )
 
         # draw divider line
@@ -331,6 +338,7 @@ def detect(save_img=False):
             cv2.waitKey(1)  # wait atleast 1ms
 
         # Save results
+        save_img = False
         if save_img:
             if dataset.mode == "image":
                 cv2.imwrite(save_path, im0)
@@ -349,19 +357,30 @@ def detect(save_img=False):
                     )
                 vid_writer.write(im0)
 
+        # write in/out count when the video is done
+        if path != prev_path:
+            vid_name = path.split("/")[-1]
+            print(f"{vid_name} done")
+            with open("../results.txt", "a") as f:
+                f.write(f"{vid_name} {in_count} {out_count}\n")
+
+            prev_path = path
+            # reset counts for next video
+            in_count = out_count = 0
+
         # Print time (inference + NMS)
-        print(f"{detections_str}Inference + NMS done. ({t2 - t1:.3f}s)")
+        # print(f"{detections_str}Inference + NMS done. ({t2 - t1:.3f}s)")
         fps = 1.0 / (t2 - t1)
         print(f"FPS: {fps}")
 
     # Text to confirm that the image/video has been saved
-    if save_txt or save_img:
-        s = (
-            f"\n{len(list(save_dir.glob('labels/*.txt')))} labels saved to {save_dir / 'labels'}"
-            if save_txt
-            else ""
-        )
-        print(f"Results saved to {save_dir}{s}")
+    # if save_txt or save_img:
+    #     s = (
+    #         f"\n{len(list(save_dir.glob('labels/*.txt')))} labels saved to {save_dir / 'labels'}"
+    #         if save_txt
+    #         else ""
+    #     )
+    #     print(f"Results saved to {save_dir}{s}")
 
     # Time taken to process the img/video
     print(f"Done. ({time.time() - t0:.3f}s)")
@@ -404,9 +423,7 @@ if __name__ == "__main__":
     parser.add_argument("--agnostic-nms", action="store_true", help="class-agnostic NMS")
     parser.add_argument("--augment", action="store_true", help="augmented inference")
     parser.add_argument("--update", action="store_true", help="update all models")
-    parser.add_argument(
-        "--project", default="runs/detect", help="save results to project/name"
-    )
+    parser.add_argument("--project", default="runs/detect", help="save results to project/name")
     parser.add_argument("--name", default="exp", help="save results to project/name")
     parser.add_argument(
         "--exist-ok",
