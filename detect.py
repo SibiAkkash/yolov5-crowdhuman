@@ -52,13 +52,14 @@ def detect(save_img=False):
     tracker = Tracker(metric, max_age=60, max_iou_distance=0.7, n_init=3)
 
     # get variables for object detection, model weights, savepath ...
-    source, weights, view_img, save_txt, imgsz, colab = (
+    source, weights, view_img, save_txt, imgsz, colab, results_loc = (
         opt.source,
         opt.weights,
         opt.view_img,
         opt.save_txt,
         opt.img_size,
         opt.colab,
+        opt.results_loc,
     )
     webcam = (
         source.isnumeric()
@@ -361,7 +362,7 @@ def detect(save_img=False):
         if path != prev_path:
             vid_name = path.split("/")[-1]
             print(f"{vid_name} done")
-            with open("../results.txt", "a") as f:
+            with open(results_loc, "a") as f:
                 f.write(f"{vid_name} {in_count} {out_count}\n")
 
             prev_path = path
@@ -398,6 +399,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "--source", type=str, default="data/images", help="source"
     )  # file/folder, 0 for webcam
+    parser.add_argument(
+        "--results-loc", type=str, default="runs/detect", help="location to store results text file"
+    )
     parser.add_argument("--img-size", type=int, default=640, help="inference size (pixels)")
     parser.add_argument(
         "--conf-thres",
