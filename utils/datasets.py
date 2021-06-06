@@ -164,7 +164,7 @@ class LoadImages:  # for inference
             if not ret_val:
                 self.count += 1
                 self.cap.release()
-                # if self.count == self.nf:  # last video
+                if self.count == self.nf:  # last video
                     raise StopIteration
                 else:
                     path = self.files[self.count]
