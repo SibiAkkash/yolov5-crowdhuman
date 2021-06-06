@@ -363,11 +363,10 @@ def detect(save_img=False):
             if prev_path is None:
                 prev_path = path
                 continue 
-
-
+            
             vid_name = prev_path.split("/")[-1]
             print(f"{vid_name} done")
-            
+
             with open(f"{results_loc}/results.txt", "a") as f:
                 f.write(f"{vid_name} {in_count} {out_count}\n")
 
@@ -390,6 +389,12 @@ def detect(save_img=False):
     #     print(f"Results saved to {save_dir}{s}")
 
     # Time taken to process the img/video
+    vid_name = prev_path.split("/")[-1]
+    print(f"{vid_name} done")
+
+    with open(f"{results_loc}/results.txt", "a") as f:
+        f.write(f"{vid_name} {in_count} {out_count}\n")
+
     print(f"Done. ({time.time() - t0:.3f}s)")
 
 
