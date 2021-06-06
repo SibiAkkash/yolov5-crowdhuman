@@ -117,6 +117,7 @@ def detect(save_img=False):
     in_count = 0
     out_count = 0
     prev_path = None
+
     for path, img, im0s, vid_cap in dataset:
         # path -> path of img/video
         # im0s -> image read from path (could be image (or) frame of a video)
@@ -358,8 +359,15 @@ def detect(save_img=False):
 
         # write in/out count when the video is done
         if path != prev_path:
-            vid_name = path.split("/")[-1]
+            
+            if prev_path is None:
+                prev_path = path
+                continue 
+
+
+            vid_name = prev_path.split("/")[-1]
             print(f"{vid_name} done")
+            
             with open(f"{results_loc}/results.txt", "a") as f:
                 f.write(f"{vid_name} {in_count} {out_count}\n")
 
