@@ -52,7 +52,7 @@ def detect(save_img=False):
     tracker = Tracker(metric, max_age=60, max_iou_distance=0.7, n_init=3)
 
     # get variables for object detection, model weights, savepath ...
-    source, weights, view_img, save_txt, imgsz, colab, results_loc = (
+    source, weights, view_img, save_txt, imgsz, colab, results_loc, save = (
         opt.source,
         opt.weights,
         opt.view_img,
@@ -60,6 +60,7 @@ def detect(save_img=False):
         opt.img_size,
         opt.colab,
         opt.results_loc,
+        opt.save
     )
     webcam = (
         source.isnumeric()
@@ -339,7 +340,7 @@ def detect(save_img=False):
 
         # Save results
         save_img = False
-        if save_img:
+        if save:
             if dataset.mode == "image":
                 cv2.imwrite(save_path, im0)
             else:  # 'video'
@@ -448,6 +449,7 @@ if __name__ == "__main__":
     parser.add_argument("--person", action="store_true", help="displays only person")
     parser.add_argument("--heads", action="store_true", help="displays only head")
     parser.add_argument("--colab", action="store_true", help="run in colab")
+    parser.add_argument("--save", default=False, type=bool, help="bool to store result video")
     opt = parser.parse_args()
     print(opt)
 
