@@ -449,7 +449,7 @@ if __name__ == "__main__":
     parser.add_argument("--person", action="store_true", help="displays only person")
     parser.add_argument("--heads", action="store_true", help="displays only head")
     parser.add_argument("--colab", action="store_true", help="run in colab")
-    parser.add_argument("--save", default=False, type=bool, help="bool to store result video")
+    parser.add_argument("--save", action="store_true", help="bool to store result video")
     opt = parser.parse_args()
     print(opt)
 
