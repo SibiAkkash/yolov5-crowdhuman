@@ -6,13 +6,21 @@ Download Link:  [YOLOv5m-crowd-human](https://drive.google.com/file/d/1gglIwqxaH
 
 <br/>
 
-**Output (Crowd Human Model)**
-
-![image](https://drive.google.com/uc?export=view&id=1ZOhDBRXj-Ra0vPL7iG6lrxCWAFhJTAti)
-
+## Output
 <br/>
 
+### Exit video
 
+![back-gif](./data/gifs/2015_05_09_07_56_07_back.gif)
+
+<br />
+
+### Exit video
+
+![front-gif](./data/gifs/2016_04_07_14_29_25_front.gif)
+
+
+<br />
 
 ## Test
 
