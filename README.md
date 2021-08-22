@@ -9,13 +9,13 @@ Download Link:  [YOLOv5m-crowd-human](https://drive.google.com/file/d/1gglIwqxaH
 # Output
 
 
-## Entry video
+## Exit video
 
 ![back-gif](./data/gifs/2015_05_09_07_56_07_back.gif)
 
 <br />
 
-## Exit video
+## Entry video
 
 ![front-gif](./data/gifs/2016_04_07_14_29_25_front.gif)
 
