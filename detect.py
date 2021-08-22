@@ -46,7 +46,8 @@ def detect(save_img=False):
     model_filename = "weights/mars-small128.pb"
     encoder = gdet.create_box_encoder(model_filename, batch_size=1)
     # calculate cosine distance metric
-    metric = nn_matching.NearestNeighborDistanceMetric("cosine", max_cosine_distance, nn_budget)
+    metric = nn_matching.NearestNeighborDistanceMetric(
+        "cosine", max_cosine_distance, nn_budget)
 
     # initialize tracker
     tracker = Tracker(metric, max_age=60, max_iou_distance=0.7, n_init=3)
@@ -72,7 +73,8 @@ def detect(save_img=False):
     save_dir = Path(
         increment_path(Path(opt.project) / opt.name, exist_ok=opt.exist_ok)
     )  # increment run
-    (save_dir / "labels" if save_txt else save_dir).mkdir(parents=True, exist_ok=True)  # make dir
+    (save_dir / "labels" if save_txt else save_dir).mkdir(parents=True,
+                                                          exist_ok=True)  # make dir
 
     # Initialize
     set_logging()
@@ -85,14 +87,6 @@ def detect(save_img=False):
     imgsz = check_img_size(imgsz, s=stride)  # check img_size
     if half:
         model.half()  # to FP16
-
-    # Second-stage classifier
-    classify = False
-    if classify:
-        modelc = load_classifier(name="resnet101", n=2)  # initialize
-        modelc.load_state_dict(torch.load("weights/resnet101.pt", map_location=device)["model"]).to(
-            device
-        ).eval()
 
     # Set Dataloader
     vid_path, vid_writer = None, None
@@ -111,7 +105,8 @@ def detect(save_img=False):
     # Run inference
     if device.type != "cpu":
         model(
-            torch.zeros(1, 3, imgsz, imgsz).to(device).type_as(next(model.parameters()))
+            torch.zeros(1, 3, imgsz, imgsz).to(
+                device).type_as(next(model.parameters()))
         )  # run once
     t0 = time.time()
 
@@ -136,7 +131,7 @@ def detect(save_img=False):
             img = img.unsqueeze(0)
 
         # Inference
-        t1 = time_synchronized()
+        start_time = time_synchronized()
         pred = model(img, augment=opt.augment)[0]
 
         # Apply NMS
@@ -149,11 +144,7 @@ def detect(save_img=False):
             classes=opt.classes,
             agnostic=opt.agnostic_nms,
         )
-        t2 = time_synchronized()
-
-        # Apply Classifier, optional second stage classifier on yolo
-        if classify:
-            preds = apply_classifier(preds, modelc, img, im0s)
+        end_time = time_synchronized()
 
         class_names = []
         bboxes = []
@@ -162,7 +153,8 @@ def detect(save_img=False):
 
         # Process detections
         for i, det in enumerate(preds):  # detections per image
-            if webcam:  # batch_size >= 1
+            # batch_size >= 1
+            if webcam:
                 p, s, im0, frame = (
                     path[i],
                     f"{i}: ",
@@ -178,18 +170,21 @@ def detect(save_img=False):
                 "" if dataset.mode == "image" else f"_{frame}"
             )  # img.txt
             s += "%gx%g " % img.shape[2:]  # print string
-            gn = torch.tensor(im0.shape)[[1, 0, 1, 0]]  # normalization gain whwh
+            # normalization gain whwh
+            gn = torch.tensor(im0.shape)[[1, 0, 1, 0]]
 
             detections_str = ""
 
             if len(det):
                 # Rescale coords (xyxy) from img1_shape to img0_shape
-                det[:, :4] = scale_coords(img.shape[2:], det[:, :4], im0.shape).round()
+                det[:, :4] = scale_coords(
+                    img.shape[2:], det[:, :4], im0.shape).round()
 
                 for *xyxy, conf, cls in reversed(det):
                     # convert bbox to xywh format
                     xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4))).view(-1).tolist()
                     # add detections of head alone, names = ['person', 'head']
+                    # cls.item() = index of class_name in names[]
                     if cls.item() == 1:
                         bboxes.append(xywh)
                         scores.append(conf.item())
@@ -197,7 +192,7 @@ def detect(save_img=False):
                         class_names.append(names[int(cls.item())])
 
                 # the bboxes were of the format (x_center, y_center, width, height)
-                # deep sort needs (x_topleft, y_topleft, width, height)
+                # DeepSORT needs in format (x_topleft, y_topleft, width, height)
                 # translate coords
                 for bbox in bboxes:
                     bbox[0] -= int(bbox[2] / 2)
@@ -206,7 +201,8 @@ def detect(save_img=False):
                 # Print detection results
                 for c in det[:, -1].unique():
                     n = (det[:, -1] == c).sum()  # detections per class
-                    s += f"{n} {names[int(c)]}{'s' * (n > 1)}, "  # add to string
+                    # add to string
+                    s += f"{n} {names[int(c)]}{'s' * (n > 1)}, "
                     detections_str = f"{n} {names[int(c)]}{'s' * (n > 1)}, "
 
         bboxes = np.array(bboxes)
@@ -230,18 +226,20 @@ def detect(save_img=False):
         boxs = np.array([d.tlwh for d in detections])
         scores = np.array([d.confidence for d in detections])
         classes = np.array([d.class_name for d in detections])
-        indices = preprocessing.non_max_suppression(boxs, classes, nms_max_overlap, scores)
+        indices = preprocessing.non_max_suppression(
+            boxs, classes, nms_max_overlap, scores)
 
         detections = [detections[i] for i in indices]
 
         width = int(vid_cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         height = int(vid_cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
+        # Boundary line coords
         LINE = ((0, height // 2), (width, height // 2))
 
         # update tracks
         tracker.predict()
-        tracker.update(detections, line_y_coord=height // 2)
+        tracker.update(detections, line_y_coord=height//2)
 
         # draw bboxes for tracked objects only
         for track in tracker.tracks:
@@ -331,11 +329,7 @@ def detect(save_img=False):
 
         # Stream results
         if view_img:
-            if colab:
-                # use cv2_imshow() which works in colab
-                cv2_imshow(im0)
-            else:
-                cv2.imshow(str(p), im0)
+            cv2.imshow(str(p), im0)
             cv2.waitKey(1)  # wait atleast 1ms
 
         # Save results
@@ -360,11 +354,11 @@ def detect(save_img=False):
 
         # write in/out count when the video is done
         if path != prev_path:
-            
+
             if prev_path is None:
                 prev_path = path
-                continue 
-            
+                continue
+
             vid_name = prev_path.split("/")[-1]
             print(f"{vid_name} done")
 
@@ -376,8 +370,8 @@ def detect(save_img=False):
             in_count = out_count = 0
 
         # Print time (inference + NMS)
-        # print(f"{detections_str}Inference + NMS done. ({t2 - t1:.3f}s)")
-        fps = 1.0 / (t2 - t1)
+        # print(f"{detections_str}Inference + NMS done. ({end_time - start_time:.3f}s)")
+        fps = 1.0 / (end_time - start_time)
         print(f"FPS: {fps}")
 
     # Text to confirm that the image/video has been saved
@@ -414,17 +408,22 @@ if __name__ == "__main__":
     parser.add_argument(
         "--results-loc", type=str, default="runs/detect", help="location to store results text file"
     )
-    parser.add_argument("--img-size", type=int, default=640, help="inference size (pixels)")
+    parser.add_argument("--img-size", type=int, default=640,
+                        help="inference size (pixels)")
     parser.add_argument(
         "--conf-thres",
         type=float,
         default=0.25,
         help="object confidence threshold",
     )
-    parser.add_argument("--iou-thres", type=float, default=0.45, help="IOU threshold for NMS")
-    parser.add_argument("--device", default="", help="cuda device, i.e. 0 or 0,1,2,3 or cpu")
-    parser.add_argument("--view-img", action="store_true", help="display results")
-    parser.add_argument("--save-txt", action="store_true", help="save results to *.txt")
+    parser.add_argument("--iou-thres", type=float,
+                        default=0.45, help="IOU threshold for NMS")
+    parser.add_argument("--device", default="",
+                        help="cuda device, i.e. 0 or 0,1,2,3 or cpu")
+    parser.add_argument("--view-img", action="store_true",
+                        help="display results")
+    parser.add_argument("--save-txt", action="store_true",
+                        help="save results to *.txt")
     parser.add_argument(
         "--save-conf",
         action="store_true",
@@ -436,20 +435,28 @@ if __name__ == "__main__":
         type=int,
         help="filter by class: --class 0, or --class 0 2 3",
     )
-    parser.add_argument("--agnostic-nms", action="store_true", help="class-agnostic NMS")
-    parser.add_argument("--augment", action="store_true", help="augmented inference")
-    parser.add_argument("--update", action="store_true", help="update all models")
-    parser.add_argument("--project", default="runs/detect", help="save results to project/name")
-    parser.add_argument("--name", default="exp", help="save results to project/name")
+    parser.add_argument("--agnostic-nms", action="store_true",
+                        help="class-agnostic NMS")
+    parser.add_argument("--augment", action="store_true",
+                        help="augmented inference")
+    parser.add_argument("--update", action="store_true",
+                        help="update all models")
+    parser.add_argument("--project", default="runs/detect",
+                        help="save results to project/name")
+    parser.add_argument("--name", default="exp",
+                        help="save results to project/name")
     parser.add_argument(
         "--exist-ok",
         action="store_true",
         help="existing project/name ok, do not increment",
     )
-    parser.add_argument("--person", action="store_true", help="displays only person")
-    parser.add_argument("--heads", action="store_true", help="displays only head")
+    parser.add_argument("--person", action="store_true",
+                        help="displays only person")
+    parser.add_argument("--heads", action="store_true",
+                        help="displays only head")
     parser.add_argument("--colab", action="store_true", help="run in colab")
-    parser.add_argument("--save", action="store_true", help="bool to store result video")
+    parser.add_argument("--save", action="store_true",
+                        help="bool to store result video")
     opt = parser.parse_args()
     print(opt)
 
