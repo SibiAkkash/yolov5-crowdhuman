@@ -6,9 +6,6 @@ Download Link:  [YOLOv5m-crowd-human](https://drive.google.com/file/d/1gglIwqxaH
 
 <br/>
 
-# Output
-
-
 ## Exit video
 
 ![back-gif](./data/gifs/2015_05_09_07_56_07_back.gif)
