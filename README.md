@@ -25,9 +25,9 @@ Download Link:  [YOLOv5m-crowd-human](https://drive.google.com/file/d/1gglIwqxaH
 # Test
 
 ```bash
-python .\detect.py \
---weights .\weights\crowdhuman_yolov5m.pt  \
---source <path-to-input-video/image> \
+python detect.py \
+--weights <path to weights file>  \
+--source <path to input video> \
 --view-img \
 --heads \
 --conf-thres 0.5 \
